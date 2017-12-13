@@ -514,7 +514,7 @@ for (co in c("Synchronous","TurnTaking","SelfPaced")){ #loop through a list of c
     d2=d2[1:nrow(d1),]
   }
   
-  #creation of surrogate files. (Riccardo's idea of having fun and completely overdoing it ;-) ) 
+  #creation of surrogate files.
   #per each 2 pairs there are 4 possible surrogate pairs: 
   #pair1person1 w pair2person2; 
   d3=data.frame(Resp1=d1$Resp1,Resp2=d2$Resp2,HR1=d1$HR1,HR2=d2$HR2)
@@ -607,7 +607,7 @@ for (co in c("Synchronous","TurnTaking","Conversation")){ #loop through a list o
 }
 
 
-## Running CRQA:
+## Running CRQA function:
 CRQA = function(data) {
   RespCRQA = crqa(data$Resp1, data$Resp2, delay = 29, embed = 3,
                    radius = 0.8, normalize = 0, rescale = 0,
@@ -677,23 +677,47 @@ summary(md13)
  - make a (probably underpowered) mixed model testing effects of the different conditions on heart rate and respiration coordination
  - N.B: would it make sense to include surrogate pairs? and if so how? what would that tell you?
 ```{r setup, include=FALSE}
+# To get column with study number
+for (file in 1:nrow(crqa_results)){
+  if (grepl("Study1", crqa_results$filename[file])){
+    crqa_results$Study[file] = 1}
+  if (grepl("Study2", crqa_results$filename[file])){
+    crqa_results$Study[file] = 2}
+}
 
-finaldata2_HR = subset(finaldata2, type == "HR")
-finaldata2_Resp = subset(finaldata2, type == "Resp")
+# To get group number
+crqa_results$Group=regmatches(crqa_results$filename, regexpr("[G].*[0-9]", crqa_results$filename))
 
+crqa_results$Group = gsub("[G, _, T]", "", crqa_results$Group)
 
-model1 = lmer(RR ~ Condition + (1|Study), data = finaldata2_HR)
+crqa_results$Group=substr(crqa_results$Group, 1, nchar(crqa_results$Group)-1)
+
+# To get trial number
+crqa_results$Trial=regmatches(crqa_results$filename, regexpr("[T].*[0-9]", crqa_results$filename))
+
+crqa_results$Trial = gsub("[T]", "", crqa_results$Trial)
+
+# To get condition
+crqa_results$filename=as.character(crqa_results$filename)
+crqa_results = crqa_results %>% group_by(filename) %>% mutate(Condition = gsub('.{4}$', '', strsplit(filename, "_")[[1]][4]))
+
+# To subset data into heart rate and respiration data
+CRQAresults_Resp=subset(crqa_results[crqa_results$type == "Resp",])
+CRQAresults_HR=subset(crqa_results[crqa_results$type == "HR",])
+
+#To test the effect of different conditions:
+model1 = lmer(RR ~ Condition + (1|Study) + (1|Group), data = CRQAresults_HR)
 summary(model1)
-model2 = lmer(L ~ Condition + (1|Study), data = finaldata2_HR)
+model2 = lmer(L ~ Condition + (1|Study) + (1|Group), data = CRQAresults_HR)
 summary(model2)
-model3 = lmer(ENTR ~ Condition + (1|Study), data = finaldata2_HR)
+model3 = lmer(ENTR ~ Condition + (1|Study) + (1|Group), data = CRQAresults_HR)
 summary(model3)
 
-model11 = lmer(RR ~ Condition + (1|Study), data = finaldata2_Resp)
+model11 = lmer(RR ~ Condition + (1|Study) + (1|Group), data = CRQAresults_Resp)
 summary(model11)
-model12 = lmer(L ~ Condition + (1|Study), data = finaldata2_Resp)
+model12 = lmer(L ~ Condition + (1|Study) + (1|Group), data = CRQAresults_Resp)
 summary(model12)
-model13 = lmer(ENTR ~ Condition + (1|Study), data = finaldata2_Resp)
+model13 = lmer(ENTR ~ Condition + (1|Study) + (1|Group), data = CRQAresults_Resp)
 summary(model13)
 
 ```
